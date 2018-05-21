@@ -1,0 +1,78 @@
+package com.myteam.contract_net;
+
+import java.util.List;
+import java.util.ArrayList;
+import org.jbpm.casemgmt.api.model.instance.CaseFileInstance;
+import com.myteam.contract_net.Bid;
+import com.myteam.contract_net.WorkResult;
+import com.myteam.contract_net.Contract;
+
+rule "Init"
+
+when 
+    $caseData : CaseFileInstance(data.get("bids") == null)
+then 
+    
+    $caseData.add("bids", new ArrayList());
+    update($caseData);
+    System.out.println("Initialized");
+end
+
+rule "Place Bid"  ruleflow-group "PlaceBid"
+
+when 
+    $caseData : CaseFileInstance()
+    $bid : Bid(!bidderId.isEmpty(), bidPrice > 0) from $caseData.getData("bid")
+    
+then 
+    $caseData.remove("bid");
+    $caseData.add($bid.getBidderId(), $bid);
+    List bids = (List)$caseData.getData("bids");
+    bids.add($bid);
+    update($caseData);
+    System.out.println("Bid placed " + $bid + " all bids " + bids);
+end
+
+rule "Drop Bid"  ruleflow-group "DropBid"
+
+when 
+    $caseData : CaseFileInstance()
+    $bid : Bid() from $caseData.getData("bid")
+    
+then 
+    $caseData.remove("bid");
+    $caseData.remove($bid.getBidderId());
+    List bids = (List)$caseData.getData("bids");
+    bids.remove($bid);
+    update($caseData);
+    System.out.println("Bid removed " + $bid + " all bids " + bids);
+end
+
+rule "Lowest price wins"  ruleflow-group "Evaluate"
+
+when 
+    $caseData : CaseFileInstance(data.get("selectedBid") == null, $bids : data.get("bids"), $contract : data.get("contract"))
+    $selected : Bid( )  from accumulate(
+    $child: Bid( $cd: bidPrice) from $bids,        
+    init( Bid minp = null; Double mind = ((Contract)$contract).getPrice(); ),
+    action( if( $cd.compareTo( mind ) < 0 ){
+                minp = $child;
+                mind = $cd;
+            } ),
+    result( minp ) )
+then 
+    
+    $caseData.add("selectedBid", $selected);
+    update($caseData);
+    System.out.println("Selected bid " + $selected);
+end
+
+rule "Process Results"  ruleflow-group "Results"
+
+when 
+    $caseData : CaseFileInstance()
+    $results : WorkResult( done == true ) from $caseData.getData("workResults")
+then 
+    
+    System.out.println("Contract work done " + $results);
+end
