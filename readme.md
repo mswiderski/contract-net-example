@@ -1,4 +1,4 @@
-Repository Init Content
+Contract Net Protocol with jBPM
 =======================
 
-Your project description here.
+See details of this project http://mswiderski.blogspot.com/2018/05/contract-net-protocol-with-jbpm.html
